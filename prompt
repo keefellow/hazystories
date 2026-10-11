@@ -1,0 +1,29 @@
+Build a Google Apps Script web app called **HazyStories**, bound to a Google Sheet, that emails subscribers when Singapore's 24-hour PSI goes above 200. Deliver two files: **Code.gs** and **Index.html** (HTML template named "Index").
+
+**Data**: `https://api-open.data.gov.sg/v2/real-time/api/psi`. Use `data.items[0].readings.psi_twenty_four_hourly` (north/south/east/west/central); the highest region is "the" PSI. Also use `timestamp` (reading hour) and `updatedTimestamp` (published time). Show this citation, with the URL linked, on the page, in every email footer, and as a comment in Code.gs:
+> National Environment Agency. (2024). *Pollutant Standards Index (PSI) (2026)* [Dataset]. data.gov.sg. Retrieved October 11, 2026 from https://data.gov.sg/datasets/d_fe37906a0182569d891506e815e819b7/view
+
+**Code.gs**
+- A CONFIG object holding: threshold 200; check every 1 minute (allowed values 1/5/10/15/30); reminder every 6 hours while PSI stays high; all-clear email on; optional API key; BCC batches of 50; confirmation links expire after 48 hours; 10-minute cooldown before resending a confirmation.
+- A "Subscribers" sheet with the columns Email, Status (pending/active/unsubscribed), Updated, Token. Only active subscribers get alerts.
+- `checkPsi()` runs on a time trigger:
+  - If NEA hasn't published a new reading and no alert is active, skip the check.
+  - When PSI rises above the threshold, send one alert, then a reminder every 6 hours while it stays above.
+  - When PSI falls back, send an all-clear.
+  - Keep track of the alert state in Script Properties.
+- Emails are sent from "HazyStories", with all subscribers in BCC. Each email includes the region table, PSI bands, health precautions, the citation, a link to haze.gov.sg and an unsubscribe link.
+- Double opt-in: `subscribe()` sets the row to pending and emails a "Confirm subscription" link (`?action=confirm&token=…`). `doGet` handles the link and shows a small result page; the possible results are confirmed, already confirmed, expired and invalid. Also include `unsubscribe()`.
+- Helper functions: `getPsiForUi()`, `setup()` (creates the sheet and trigger), `testAlertToMe()`, `resetState()`, and a setup-steps comment.
+
+**Index.html**: a polished, responsive page with dark mode, using the Manrope font.
+- Colour the page by PSI band: green for Good, blue for Moderate, amber for Unhealthy, orange-red for Very unhealthy, maroon for Hazardous.
+- A "Trial version" diagonal ribbon in the top-left corner.
+- A header with the logo and the name HazyStories, a live subscriber count and a refresh button.
+- A hero card with:
+  - the highest PSI shown as a large number, with its band pill and region
+  - a 0–500 colour scale with a marker for the current reading and a threshold line
+  - a banner with health advice
+- A compass-layout region map (N/W/C/E/S tiles). Below it: "NEA reading for {time} SGT, published {time} · NEA publishes hourly, we check every minute". Never show a fake time.
+- A sign-up card with a Subscribe/Unsubscribe toggle and an email field, noting that a confirmation link will be sent.
+- A footer with the citation box.
+- Preview mode, for when the page runs outside Apps Script: fetch the API directly. If that fails, show sample data labelled as sample.
